@@ -1,5 +1,3 @@
-LICENSE (MIT License — paste directly into a file)
-
 MIT License
 
 Copyright (c) 2025 Dabney Morris
