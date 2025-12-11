@@ -1,0 +1,65 @@
+# ------------------------------------------------------------------------------
+# Line ending normalization
+# ------------------------------------------------------------------------------
+
+# Normalize all text files to LF in the repository
+* text=auto eol=lf
+
+# ------------------------------------------------------------------------------
+# Binary files (no diffing, no merging)
+# ------------------------------------------------------------------------------
+
+# Firmware binaries
+*.elf binary
+*.bin binary
+*.hex binary
+*.dfu binary
+
+# Compiled objects and build artifacts
+*.o binary
+*.a binary
+*.so binary
+*.d binary
+*.lst binary
+
+# Audio resources (if ever added)
+*.wav binary
+*.aiff binary
+*.flac binary
+*.mp3 binary
+
+# Images used for documentation
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.svg binary
+
+# ------------------------------------------------------------------------------
+# Daisy-specific exclusions & clarity
+# ------------------------------------------------------------------------------
+
+# Prevent GitHub linguist from misclassifying hardware or config files
+libDaisy/* linguist-vendored
+DaisySP/* linguist-vendored
+
+# ------------------------------------------------------------------------------
+# Text file overrides
+# ------------------------------------------------------------------------------
+
+*.md text
+*.txt text
+*.cpp text
+*.c text
+*.h text
+*.hpp text
+*.make text
+Makefile text
+*.cmake text
+*.py text
+*.sh text
+
+# ------------------------------------------------------------------------------
+# End of file
+# ------------------------------------------------------------------------------

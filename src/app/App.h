@@ -3,44 +3,52 @@
 #include "daisy_seed.h"
 #include "system/HardwareConfig.h"
 #include "dsp/DspEngine.h"
+#include "midi/MidiState.h"
+#include "midi/MidiManager.h"
+#include "ui/UiController.h"
 
-// The App class owns high-level pedal behavior:
-// - Initializes hardware config
-// - Initializes DSP
-// - Routes audio callback to DSP
-// - Later: handles MIDI, UI, preset management, etc.
+// The App class owns high-level pedal behavior.
 class App
 {
   public:
     App() {}
     ~App() {}
 
-    // Initialize application with hardware reference
     void Init(daisy::DaisySeed& hw)
     {
-        // Configure hardware (sample rate, block size, etc.)
+        // Hardware (sample rate, block size, etc.)
         hw_config_.Init(hw);
 
-        // Initialize DSP using the configured sample rate
+        // MIDI
+        midi_state_ = midi::MidiState{};
+        midi_mgr_.Init(hw, &midi_state_);
+
+        // DSP
         float sr = hw_config_.GetSampleRate();
         dsp_.Init(sr);
+
+        // UI
+        ui_.Init();
     }
 
-    // Called from audio callback
     void AudioCallback(daisy::AudioHandle::InterleavingInputBuffer  in,
                        daisy::AudioHandle::InterleavingOutputBuffer out,
-                       std::size_t                                size)
+                       std::size_t                                  size)
     {
         dsp_.ProcessInterleaved(in, out, size);
     }
 
-    // Called from main loop (future UI, MIDI, preset management)
     void Loop()
     {
-        // Nothing yet — will expand
+        // Order here can be tuned later if we want:
+        midi_mgr_.Process();
+        ui_.Update();
     }
 
   private:
-    HardwareConfig hw_config_;
-    DspEngine      dsp_;
+    HardwareConfig    hw_config_;
+    DspEngine         dsp_;
+    midi::MidiState   midi_state_;
+    midi::MidiManager midi_mgr_;
+    UiController      ui_;
 };

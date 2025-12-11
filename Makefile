@@ -6,7 +6,18 @@ CPP_SOURCES = \
   src/main.cpp \
   src/app/App.cpp \
   src/dsp/DspEngine.cpp \
-  src/system/HardwareConfig.cpp
+  src/system/HardwareConfig.cpp \
+  src/util/Log.cpp \
+  src/midi/MidiState.cpp \
+  src/midi/MidiManager.cpp \
+  src/ui/Encoder.cpp \
+  src/ui/Footswitch.cpp \
+  src/ui/OledView.cpp \
+  src/ui/UiController.cpp \
+  src/ui/Button.cpp \
+  src/ui/ToggleSwitch.cpp \
+  src/ui/Potentiometer.cpp \
+  src/ui/Led.cpp
 
 # Library Locations (local to this repo)
 LIBDAISY_DIR ?= libDaisy

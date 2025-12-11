@@ -11,9 +11,15 @@ build/
 *.lst
 *.list
 
-# Libraries built from source
+# Daisy integrated libraries build directories
 libDaisy/build/
 DaisySP/build/
+
+# ==========================
+# Firmware output / flash helpers
+# ==========================
+*.dfu
+*.out
 
 # ==========================
 # OS-specific clutter
@@ -25,10 +31,12 @@ Thumbs.db
 # Editor / IDE files
 # ==========================
 .vscode/
+*.code-workspace
+.idea/
 *.swp
 *~
-.idea/
-*.code-workspace
+*.user
+*.workspace
 
 # ==========================
 # CMake leftovers (if used accidentally)
@@ -36,12 +44,27 @@ Thumbs.db
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-Makefile.in
 build.ninja
 *.cmake
+Makefile.in
 
 # ==========================
 # Logs / temp
 # ==========================
 *.log
+*.tmp
 tmp/
+
+# ==========================
+# Toolchain & debug files
+# ==========================
+.gdb_history
+*.gdb
+*.bak
+
+# ==========================
+# Misc / accidental commits
+# ==========================
+*.orig
+*.patch
+*.rej
