@@ -1,0 +1,47 @@
+# ==========================
+# Build artifacts
+# ==========================
+build/
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.list
+
+# Libraries built from source
+libDaisy/build/
+DaisySP/build/
+
+# ==========================
+# OS-specific clutter
+# ==========================
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Editor / IDE files
+# ==========================
+.vscode/
+*.swp
+*~
+.idea/
+*.code-workspace
+
+# ==========================
+# CMake leftovers (if used accidentally)
+# ==========================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile.in
+build.ninja
+*.cmake
+
+# ==========================
+# Logs / temp
+# ==========================
+*.log
+tmp/
