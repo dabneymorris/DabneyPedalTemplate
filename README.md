@@ -1,158 +1,211 @@
-Dabney Daisy Pedal Template
+# Daisy Pedal Template
 
-A clean, modular, professional firmware template for building Daisy Seed–based guitar pedals, synths, and audio processors.
+A clean, minimal, **real‑time‑safe firmware template** for building audio pedals,
+synths, and DSP processors on the **Electro‑Smith Daisy Seed** platform.
 
-This repository provides a reusable firmware skeleton with a clear architectural separation between DSP, UI, MIDI, hardware configuration, and system utilities. It is designed to scale from simple one-knob pedals to complex multi-voice digital processors.
+This repository is designed to be:
+- Architecturally correct
+- Easy to extend
+- Safe for hard real‑time audio
+- Friendly to both humans and LLMs
 
-Features
+It is a **template**, not a finished product.
 
-Modular architecture
+---
 
-The codebase is fully separated into functional layers:
-	•	app/ – High-level app orchestration
-	•	dsp/ – DSP engine and audio processing
-	•	midi/ – MIDI parsing, note-state logic, CC & Program Change
-	•	ui/ – Encoder, buttons, pots, toggles, LEDs, OLED
-	•	system/ – Hardware configuration (sample rate, block size, pins)
-	•	config/ – Editable build-time configuration constants
-	•	util/ – Shared types and logging system
+## What this repository is
 
-Real-world pedal ready
-	•	Complete MIDI logic (notes, CC, sustain, program change)
-	•	Expandable DSP engine
-	•	Template UI controller
-	•	Clean Makefile build system
-	•	gitignore tuned for Daisy projects
-	•	Fully compatible with DaisyToolchain
+This repo provides:
+- A correct Daisy Seed execution model
+- A clear separation between DSP, MIDI, UI, and hardware
+- A minimal but complete firmware skeleton
+- Explicit extension points
 
-⸻
+It is intended to be used as:
+- A starting point for new pedals or instruments
+- A reference architecture for Daisy projects
+- A base repo you clone or mark as a GitHub Template
 
-Directory Structure
+---
 
-src/
-app/ – App-level orchestration
-dsp/ – DSP engine (extend with voices, filters, shifters, etc.)
-midi/ – MIDI state + MIDI manager
-ui/ – Encoder, buttons, pots, switches, LEDs, OLED
-system/ – Hardware configuration + clock/block size
-config/ – Build, DSP, UI, and MIDI configuration headers
-util/ – Shared types + logging stub
-main.cpp – Entry point
+## What this repository is NOT
 
-libDaisy/ – Daisy core library (submodule or copied)
-DaisySP/ – DaisySP library (submodule or copied)
-Makefile – Build rules
-README.md – This file
+This repo intentionally does **not** include:
+- Finished DSP algorithms
+- Preset systems or storage
+- QSPI / flash / FATFS
+- UI menus or parameter editing
+- Hardware pin mappings
+- MIDI hardware wiring
+- OLED drivers
 
-⸻
+Many components are present as **scaffolding only**.
 
-Requirements
+---
 
-Before building, install:
+## Repository structure
 
-DaisyToolchain (ARM GCC, dfu-util):
-https://github.com/electro-smith/DaisyToolchain
+```
+/
+├── README.md
+├── MODULES.md
+├── LLM_CONTEXT.md
+├── Makefile
+├── src/
+│   ├── main.cpp
+│   ├── app/
+│   ├── system/
+│   ├── dsp/
+│   ├── midi/
+│   ├── ui/
+│   ├── config/
+│   └── util/
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── BUILDING.md
+│   ├── RUNTIME_MODEL.md
+│   ├── DSP.md
+│   ├── MIDI.md
+│   ├── UI.md
+│   └── CONFIG.md
+├── libDaisy/
+└── DaisySP/
+```
 
-libDaisy and DaisySP:
-Clone or copy these into the root of the project:
+Key files:
+- **MODULES.md** — where things live and how to extend safely
+- **docs/ARCHITECTURE.md** — ownership boundaries and system design
+- **docs/RUNTIME_MODEL.md** — audio vs main‑loop rules (critical)
+- **docs/DSP.md** — audio buffer contract and DSP extension rules
 
-DabneyPedalTemplate/
-libDaisy/
-DaisySP/
+---
 
-⸻
+## Execution model (high‑level)
 
-Building the Firmware
+This firmware runs in **two execution contexts**:
 
-From the project root:
+### Audio thread (hard real‑time)
+- Runs inside Daisy’s audio callback
+- Executes DSP only
+- Must never allocate, log, or touch peripherals
 
+### Main loop (non‑real‑time)
+- Runs in `while(1)` in `main.cpp`
+- Polls MIDI and UI
+- Updates non‑audio state
+- Handles hardware IO
+
+This separation is enforced by structure and documentation.
+
+---
+
+## Requirements
+
+### Hardware
+- Electro‑Smith Daisy Seed
+- USB cable (data‑capable)
+
+### Software
+- DaisyToolchain (ARM GCC + dfu‑util)
+  https://github.com/electro-smith/DaisyToolchain
+
+---
+
+## Getting started
+
+### Clone and initialize submodules
+
+```
+git clone <this‑repo>
+cd <this‑repo>
+git submodule update --init --recursive
+```
+
+This populates:
+- `libDaisy/`
+- `DaisySP/`
+
+---
+
+### Build
+
+From the repo root:
+
+```
 make
+```
 
-To flash the Daisy Seed via USB DFU mode:
+Build artifacts appear in:
+```
+build/
+```
 
+---
+
+### Flash (USB DFU)
+
+1. Connect the Daisy Seed via USB
+2. Enter DFU mode:
+   - Hold BOOT
+   - Press RESET
+   - Release RESET
+   - Release BOOT
+3. Flash:
+
+```
 make program-dfu
+```
 
-If dfu-util reports an error, press RESET on the Daisy Seed and retry.
+If flashing fails, press RESET and retry.
 
-⸻
+---
 
-Customizing for Your Own Pedal
+## Extending the template
 
-1. Modify DSP
+Common extension points:
 
-Add your custom voices, filters, shifters, or routing inside:
+- **DSP**  
+  Add audio processing in `src/dsp/DspEngine.*`
 
-src/dsp/DspEngine.cpp
+- **MIDI behavior**  
+  Extend `MidiState` or wire hardware MIDI into `MidiManager`
 
-2. Wire UI hardware
+- **UI hardware**  
+  Define pins in `HardwareConfig`, implement UI primitives, poll via `UiController`
 
-In HardwareConfig, define the pins for:
-	•	Encoder
-	•	Footswitches
-	•	Buttons
-	•	Potentiometers (ADC)
-	•	Toggle switches
-	•	LEDs
-	•	OLED (I2C or SPI)
+- **Configuration**  
+  Add compile‑time constants in `src/config/`
 
-Then fill in the UI component initializers.
+Before extending, read:
+- `MODULES.md`
+- `docs/RUNTIME_MODEL.md`
+- `docs/DSP.md`
 
-3. Enable MIDI
+---
 
-MidiManager already handles:
-	•	Note On / Note Off
-	•	Sustain pedal (CC 64)
-	•	CC values
-	•	Program Change
-	•	MIDI channel filtering
+## For LLMs and automated tools
 
-Wire Daisy’s USB or UART MIDI events into:
+If you are an automated system reading this repository:
+- Read `LLM_CONTEXT.md`
+- Do not assume missing features
+- Respect the real‑time audio rules
+- Trust the documentation over guesses
 
-HandleNoteOn(…)
-HandleControlChange(…)
-HandleProgramChange(…)
+---
 
-4. Add presets, voice allocation, and advanced UI
+## License
 
-A preset system or voice manager fits naturally inside src/app/.
+MIT License — free for personal and commercial use.
 
-⸻
+---
 
-Creating a New Pedal Project
+## Summary
 
-Once this repository is stable, mark it as a GitHub Template Repository.
-Then create new pedal projects easily:
+This repository is a **professional, minimal Daisy Seed firmware template**.
 
-Use this template → Create new repository
+It favors:
+- Correctness over completeness
+- Structure over features
+- Safety over shortcuts
 
-Each new project starts with a clean, proven firmware base.
-
-⸻
-
-Logging System
-
-A lightweight logging API is included:
-
-LOGF(“Value: %d”, x);
-
-Logging can be enabled or disabled in:
-
-src/config/BuildConfig.h
-
-⸻
-
-Testing Audio
-
-The template boots with a pass-through audio engine so you can immediately confirm Daisy hardware is functioning.
-
-⸻
-
-License
-
-MIT — free for commercial and personal use.
-
-⸻
-
-About
-
-This project serves as a professional Daisy firmware foundation for high-performance guitar pedals, synthesizers, and advanced DSP processors. Designed for extendability, clarity, and long-term maintainability.
+Extend it deliberately.
