@@ -1,0 +1,1187 @@
+==============================
+FILE: Makefile
+==============================
+
+# Project Name
+TARGET = DabneyPitchPedal
+
+# ----------------------------------------------------------------
+# C++ source files
+# ----------------------------------------------------------------
+CPP_SOURCES = \
+    $(wildcard src/*.cpp) \
+    $(wildcard src/app/*.cpp) \
+    $(wildcard src/config/*.cpp) \
+    $(wildcard src/dsp/*.cpp) \
+    $(wildcard src/midi/*.cpp) \
+    $(wildcard src/music/*.cpp) \
+    $(wildcard src/presets/*.cpp) \
+    $(wildcard src/ui/*.cpp) \
+    $(wildcard src/settings/*.cpp) \
+    $(wildcard src/system/*.cpp) \
+    $(wildcard src/util/*.cpp)
+
+# Library Locations (local to this repo)
+LIBDAISY_DIR ?= libDaisy
+DAISYSP_DIR  ?= DaisySP
+
+# Core location, and generic Makefile.
+SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
+include $(SYSTEM_FILES_DIR)/Makefile
+
+# Add our src/ folder to the include search path
+C_INCLUDES += -Isrc
+==============================
+FILE: .vscode/launch.json
+==============================
+
+{
+  "configurations": [
+    {
+      "configFiles": [
+        "interface/stlink.cfg",
+        "target/stm32h7x.cfg"
+      ],
+      "cwd": "${workspaceFolder}",
+      "debuggerArgs": [
+        "-d",
+        "${workspaceRoot}"
+      ],
+      "executable": "${workspaceRoot}/build/ExampleProject.elf",
+      "interface": "swd",
+      "name": "Cortex Debug",
+      "openOCDLaunchCommands": [
+        "init",
+        "reset init"
+      ],
+      "preLaunchTask": "build_all_debug",
+      "preRestartCommands": [
+        "load",
+        "enable breakpoint",
+        "monitor reset"
+      ],
+      "request": "launch",
+      "runToMain": true,
+      "servertype": "openocd",
+      "showDevDebugOutput": true,
+      "svdFile": "${workspaceRoot}/.vscode/STM32H750x.svd",
+      "type": "cortex-debug"
+    }
+  ],
+  "version": "0.2.0"
+}
+==============================
+FILE: .vscode/tasks.json
+==============================
+
+{
+  "tasks": [
+    {
+      "command": "make clean; make",
+      "group": {
+        "isDefault": true,
+        "kind": "build"
+      },
+      "label": "build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean; make; make program",
+      "label": "build_and_program",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean; make; make program-dfu",
+      "label": "build_and_program_dfu",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean;make",
+      "dependsOn": [
+        "build_libdaisy",
+        "build_daisysp"
+      ],
+      "label": "build_all",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean;DEBUG=1 make",
+      "dependsOn": [
+        "build_libdaisy",
+        "build_daisysp"
+      ],
+      "label": "build_all_debug",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make program-dfu",
+      "label": "program-dfu",
+      "problemMatcher": [],
+      "type": "shell"
+    },
+    {
+      "command": "make program",
+      "label": "program",
+      "problemMatcher": [],
+      "type": "shell"
+    },
+    {
+      "command": "make",
+      "label": "build_libdaisy",
+      "options": {
+        "cwd": "${workspaceFolder}/../../libDaisy/"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make",
+      "label": "build_daisysp",
+      "options": {
+        "cwd": "${workspaceFolder}/../../DaisySP/"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    }
+  ],
+  "version": "2.0.0"
+}
+==============================
+FILE: src/app/App.cpp
+==============================
+
+#include "app/App.h"
+
+// Currently all logic is inline in App.h
+// This file exists to match project structure and allow expansion later.
+==============================
+FILE: src/app/App.h
+==============================
+
+#pragma once
+
+#include "daisy_seed.h"
+#include "system/HardwareConfig.h"
+#include "dsp/DspEngine.h"
+#include "midi/MidiState.h"
+#include "midi/MidiManager.h"
+#include "ui/UiController.h"
+
+// The App class owns high-level pedal behavior.
+class App
+{
+  public:
+    App() {}
+    ~App() {}
+
+    void Init(daisy::DaisySeed& hw)
+    {
+        // Hardware (sample rate, block size, etc.)
+        hw_config_.Init(hw);
+
+        // MIDI
+        midi_state_ = midi::MidiState{};
+        midi_mgr_.Init(hw, &midi_state_);
+
+        // DSP
+        float sr = hw_config_.GetSampleRate();
+        dsp_.Init(sr);
+
+        // UI
+        ui_.Init();
+    }
+
+    void AudioCallback(daisy::AudioHandle::InterleavingInputBuffer  in,
+                       daisy::AudioHandle::InterleavingOutputBuffer out,
+                       std::size_t                                  size)
+    {
+        dsp_.ProcessInterleaved(in, out, size);
+    }
+
+    void Loop()
+    {
+        // Order here can be tuned later if we want:
+        midi_mgr_.Process();
+        ui_.Update();
+    }
+
+  private:
+    HardwareConfig    hw_config_;
+    DspEngine         dsp_;
+    midi::MidiState   midi_state_;
+    midi::MidiManager midi_mgr_;
+    UiController      ui_;
+};
+==============================
+FILE: src/config/BuildConfig.h
+==============================
+
+#pragma once
+
+// Global build / debug configuration for the pedal framework.
+
+#define BUILD_DEBUG    1   // 1 = debug build, 0 = release
+#define ENABLE_LOGGING 1   // placeholder for a future logging system
+==============================
+FILE: src/config/DspConfig.h
+==============================
+
+#pragma once
+
+#include "daisy_seed.h"
+
+// DSP-related configuration for all pedals based on this template.
+namespace config
+{
+namespace dsp
+{
+    // Default audio sample rate
+    static constexpr daisy::SaiHandle::Config::SampleRate kSampleRate
+        = daisy::SaiHandle::Config::SampleRate::SAI_48KHZ;
+
+    // Default audio block size (number of samples per channel per callback)
+    static constexpr std::size_t kBlockSize = 16;
+} // namespace dsp
+} // namespace config
+==============================
+FILE: src/config/MidiConfig.h
+==============================
+
+#pragma once
+
+#include <cstdint>
+
+namespace config
+{
+namespace midi
+{
+    // 0 = omni (listen to all channels)
+    // 1-16 = specific MIDI channel
+    static constexpr uint8_t kDefaultChannel = 1;
+
+} // namespace midi
+} // namespace config
+==============================
+FILE: src/config/UiConfig.h
+==============================
+
+#pragma once
+
+// UI-related configuration for pedals (encoder timing, OLED size, etc.)
+namespace config
+{
+namespace ui
+{
+    // Example placeholder: encoder double-click window in milliseconds
+    static constexpr int kEncoderDoubleClickMs = 250;
+} // namespace ui
+} // namespace config
+==============================
+FILE: src/dsp/DspEngine.cpp
+==============================
+
+#include "dsp/DspEngine.h"
+
+// Currently everything is inline / trivial in the header.
+// This file exists so the build system has a .cpp to compile for DSP.
+// Later we'll move more implementation here as DSP gets more complex.
+==============================
+FILE: src/dsp/DspEngine.h
+==============================
+
+#pragma once
+
+#include <cstddef>
+
+class DspEngine
+{
+  public:
+    DspEngine() {}
+    ~DspEngine() {}
+
+    // Call once at startup
+    void Init(float sample_rate)
+    {
+        sample_rate_ = sample_rate;
+    }
+
+    // Process interleaved stereo audio in-place:
+    // size = number of float samples in the interleaved buffer (L,R,L,R,...)
+    void ProcessInterleaved(const float* in, float* out, std::size_t size)
+    {
+        // For now: pure passthrough
+        for(std::size_t i = 0; i < size; i += 2)
+        {
+            float l = in[i];
+            float r = in[i + 1];
+
+            out[i]     = l;
+            out[i + 1] = r;
+        }
+    }
+
+  private:
+    float sample_rate_{48000.0f};
+};
+==============================
+FILE: src/main.cpp
+==============================
+
+#include "daisy_seed.h"
+#include "daisysp.h"
+#include "app/App.h"
+
+using namespace daisy;
+using namespace daisysp;
+
+// Global hardware + app
+DaisySeed hw;
+App       app;
+
+// Forward audio callback to App
+static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
+                          AudioHandle::InterleavingOutputBuffer out,
+                          size_t                                size)
+{
+    app.AudioCallback(in, out, size);
+}
+
+int main(void)
+{
+    hw.Configure();
+    hw.Init();
+
+    // Initialize the high-level application
+    app.Init(hw);
+
+    hw.StartAudio(AudioCallback);
+
+    // Main loop handles non-audio tasks
+    while(1)
+    {
+        app.Loop();
+    }
+}
+==============================
+FILE: src/midi/MidiManager.cpp
+==============================
+
+#include "midi/MidiManager.h"
+
+// All logic currently in header; this file exists for future expansion
+// without changing the build setup.
+==============================
+FILE: src/midi/MidiManager.h
+==============================
+
+#pragma once
+
+#include <cstdint>
+#include "daisy_seed.h"
+#include "midi/MidiState.h"
+#include "config/MidiConfig.h"
+
+namespace midi
+{
+    // MidiManager wraps MIDI message handling:
+    // - Filters by channel
+    // - Updates MidiState for Note, CC, Program Change
+    class MidiManager
+    {
+      public:
+        MidiManager() {}
+        ~MidiManager() {}
+
+        void Init(daisy::DaisySeed& hw, MidiState* state)
+        {
+            (void)hw; // unused for now (will be used when we wire Daisy MIDI)
+            state_       = state;
+            listen_chan_ = config::midi::kDefaultChannel; // 0 = omni
+            timestamp_   = 0;
+        }
+
+        // Called regularly from App::Loop()
+        void Process()
+        {
+            // In the future: pull MIDI events from Daisy here and
+            // dispatch them via HandleNoteOn/Off/ControlChange/ProgramChange.
+        }
+
+        // --- Channel handling ---
+
+        // 0 = omni, 1-16 = specific channel
+        void SetChannel(uint8_t channel)
+        {
+            if(channel <= 16)
+                listen_chan_ = channel;
+        }
+
+        uint8_t GetChannel() const { return listen_chan_; }
+
+        // --- Event handlers (to be called from Daisy MIDI callbacks later) ---
+
+        void HandleNoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
+        {
+            if(!state_ || !ChannelMatches(channel))
+                return;
+
+            ++timestamp_;
+            state_->NoteOn(note, velocity, timestamp_);
+        }
+
+        void HandleNoteOff(uint8_t channel, uint8_t note, uint8_t velocity)
+        {
+            (void)velocity; // unused for now
+            if(!state_ || !ChannelMatches(channel))
+                return;
+
+            ++timestamp_;
+            state_->NoteOff(note);
+        }
+
+        void HandleControlChange(uint8_t channel,
+                                 uint8_t controller,
+                                 uint8_t value)
+        {
+            if(!state_ || !ChannelMatches(channel))
+                return;
+
+            ++timestamp_;
+
+            // Sustain pedal (CC 64)
+            if(controller == 64)
+            {
+                if(value >= 64)
+                    state_->SustainOn();
+                else
+                    state_->SustainOff();
+            }
+
+            state_->ControlChange(controller, value);
+        }
+
+        void HandleProgramChange(uint8_t channel, uint8_t program)
+        {
+            if(!state_ || !ChannelMatches(channel))
+                return;
+
+            ++timestamp_;
+            state_->ProgramChange(program);
+        }
+
+        MidiState* GetState() const { return state_; }
+
+      private:
+        bool ChannelMatches(uint8_t msg_chan) const
+        {
+            if(listen_chan_ == 0)
+                return true; // omni
+            return msg_chan == listen_chan_;
+        }
+
+        MidiState* state_       = nullptr;
+        uint8_t    listen_chan_ = 0; // 0=omni, 1-16 valid
+        uint32_t   timestamp_   = 0; // increments per processed event
+    };
+
+} // namespace midi
+==============================
+FILE: src/midi/MidiState.cpp
+==============================
+
+#include "midi/MidiState.h"
+
+namespace midi
+{
+    void MidiState::Reset()
+    {
+        for(auto &n : notes_)
+        {
+            n.down      = false;
+            n.sustained = false;
+            n.velocity  = 0;
+            n.age       = 0;
+        }
+        sustain_      = false;
+        last_program_ = 0;
+
+        for(auto &v : cc_values_)
+        {
+            v = 0;
+        }
+    }
+
+    void MidiState::NoteOn(uint8_t note, uint8_t velocity, uint32_t timestamp)
+    {
+        if(note >= notes_.size())
+            return;
+
+        auto &n  = notes_[note];
+        n.down   = true;
+        n.velocity = velocity;
+        n.age    = timestamp; // caller provides a monotonically increasing time index
+        // Sustained flag is handled in NoteOff/SustainOn/SustainOff.
+    }
+
+    void MidiState::NoteOff(uint8_t note)
+    {
+        if(note >= notes_.size())
+            return;
+
+        auto &n = notes_[note];
+        n.down  = false;
+
+        // If sustain is active, keep the note "alive" as sustained
+        if(sustain_)
+        {
+            n.sustained = true;
+        }
+        else
+        {
+            // No sustain: fully release the note
+            n.sustained = false;
+            n.velocity  = 0;
+            n.age       = 0;
+        }
+    }
+
+    void MidiState::SustainOn()
+    {
+        sustain_ = true;
+        // Existing notes remain as-is; NoteOff will start marking sustained notes.
+    }
+
+    void MidiState::SustainOff()
+    {
+        sustain_ = false;
+
+        // Any notes that are only sustained (key already released) should die now
+        for(auto &n : notes_)
+        {
+            if(!n.down && n.sustained)
+            {
+                n.sustained = false;
+                n.velocity  = 0;
+                n.age       = 0;
+            }
+        }
+    }
+
+    bool MidiState::IsNoteActive(uint8_t note) const
+    {
+        if(note >= notes_.size())
+            return false;
+
+        const auto &n = notes_[note];
+        return n.down || n.sustained;
+    }
+
+    int MidiState::GetMostRecentActiveNote() const
+    {
+        uint32_t best_age  = 0;
+        int      best_note = -1;
+
+        for(uint8_t i = 0; i < notes_.size(); ++i)
+        {
+            const auto &n = notes_[i];
+            if((n.down || n.sustained) && n.age >= best_age)
+            {
+                best_age  = n.age;
+                best_note = static_cast<int>(i);
+            }
+        }
+
+        return best_note;
+    }
+
+    void MidiState::ControlChange(uint8_t controller, uint8_t value)
+    {
+        if(controller >= cc_values_.size())
+            return;
+
+        cc_values_[controller] = value;
+    }
+
+    uint8_t MidiState::GetCcValue(uint8_t controller) const
+    {
+        if(controller >= cc_values_.size())
+            return 0;
+
+        return cc_values_[controller];
+    }
+
+    void MidiState::ProgramChange(uint8_t program)
+    {
+        last_program_ = program;
+    }
+
+} // namespace midi
+==============================
+FILE: src/midi/MidiState.h
+==============================
+
+#pragma once
+
+#include <cstdint>
+#include <array>
+
+namespace midi
+{
+    struct NoteState
+    {
+        bool     down      = false;  // true if key is currently held
+        bool     sustained = false;  // true if held by sustain pedal
+        uint8_t  velocity  = 0;      // last velocity
+        uint32_t age       = 0;      // monotonically increasing timestamp
+    };
+
+    class MidiState
+    {
+      public:
+        MidiState() { Reset(); }
+
+        void Reset();
+
+        // --- Note handling ---
+
+        // Called on Note On events (after channel filtering)
+        void NoteOn(uint8_t note, uint8_t velocity, uint32_t timestamp);
+
+        // Called on Note Off events (after channel filtering)
+        void NoteOff(uint8_t note);
+
+        // Sustain pedal pressed (CC64 >= 64)
+        void SustainOn();
+
+        // Sustain pedal released (CC64 < 64)
+        void SustainOff();
+
+        bool IsNoteActive(uint8_t note) const;
+
+        // Returns the most recent active note, or -1 if none
+        int GetMostRecentActiveNote() const;
+
+        bool GetSustain() const { return sustain_; }
+
+        // --- Control Changes ---
+
+        // Generic CC update (0-127)
+        void ControlChange(uint8_t controller, uint8_t value);
+
+        // Get last seen value for a CC (0-127)
+        uint8_t GetCcValue(uint8_t controller) const;
+
+        // --- Program Change ---
+
+        void ProgramChange(uint8_t program); // 0-127
+
+        uint8_t GetLastProgram() const { return last_program_; }
+
+      private:
+        std::array<NoteState, 128>  notes_;
+        bool                        sustain_ = false;
+
+        std::array<uint8_t, 128>   cc_values_;    // last value per CC
+        uint8_t                     last_program_ = 0;
+    };
+
+} // namespace midi
+==============================
+FILE: src/system/HardwareConfig.cpp
+==============================
+
+#include "system/HardwareConfig.h"
+
+// All implementation is currently inline in the header.
+// This .cpp exists so we can expand later without changing the build setup.
+==============================
+FILE: src/system/HardwareConfig.h
+==============================
+
+#pragma once
+
+#include "daisy_seed.h"
+#include "config/DspConfig.h"
+
+// HardwareConfig centralizes hardware-related setup:
+// - Audio sample rate and block size
+// - (Later) pin mappings, peripherals, etc.
+class HardwareConfig
+{
+  public:
+    HardwareConfig() {}
+    ~HardwareConfig() {}
+
+    // Call once after hw.Configure() and hw.Init() have been called in main().
+    void Init(daisy::DaisySeed& hw)
+    {
+        hw_ = &hw;
+
+        // Set block size and sample rate from config::dsp
+        hw.SetAudioBlockSize(config::dsp::kBlockSize);
+        hw.SetAudioSampleRate(config::dsp::kSampleRate);
+
+        sample_rate_ = hw.AudioSampleRate();
+        block_size_  = hw.AudioBlockSize();
+    }
+
+    float GetSampleRate() const { return sample_rate_; }
+    std::size_t GetBlockSize() const { return block_size_; }
+
+    daisy::DaisySeed* GetHw() const { return hw_; }
+
+  private:
+    daisy::DaisySeed* hw_{nullptr};
+    float             sample_rate_{48000.0f};
+    std::size_t       block_size_{16};
+};
+==============================
+FILE: src/ui/Button.cpp
+==============================
+
+#include "ui/Button.h"
+
+// All logic stubbed in header for now.
+// This file exists for future expansion.
+==============================
+FILE: src/ui/Button.h
+==============================
+
+#pragma once
+
+// Simple debounced momentary button abstraction.
+// Later we'll wire this to a GPIO pin from HardwareConfig.
+class Button
+{
+  public:
+    Button() {}
+    ~Button() {}
+
+    void Init()
+    {
+        // TODO: initialize GPIO from HardwareConfig
+    }
+
+    void Update()
+    {
+        // TODO: read pin, debounce, update edge/hold state
+    }
+
+    // Edge: went from up to down on this Update()
+    bool Pressed() const { return false; }
+
+    // Edge: went from down to up on this Update()
+    bool Released() const { return false; }
+
+    // Level: currently pressed
+    bool Held() const { return false; }
+};
+==============================
+FILE: src/ui/Encoder.cpp
+==============================
+
+#include "ui/Encoder.h"
+
+// All logic stubbed in header for now.
+// This file exists for future expansion.
+==============================
+FILE: src/ui/Encoder.h
+==============================
+
+#pragma once
+
+#include <cstdint>
+
+// Simple encoder abstraction with a push button.
+// For now, this is a stub. We'll wire it to actual GPIO later.
+class Encoder
+{
+  public:
+    Encoder() {}
+    ~Encoder() {}
+
+    void Init()
+    {
+        // TODO: later: take pins from HardwareConfig and init Daisy's encoder
+    }
+
+    // Call regularly from UiController::Update()
+    void Update()
+    {
+        // TODO: read hardware and update internal state
+    }
+
+    // Returns encoder delta since last Update (e.g. -1, 0, +1)
+    int GetDelta() const
+    {
+        return 0; // stub
+    }
+
+    // Button states (we'll implement later)
+    bool Pressed() const { return false; }
+    bool Released() const { return false; }
+    bool Held() const { return false; }
+};
+==============================
+FILE: src/ui/Footswitch.cpp
+==============================
+
+#include "ui/Footswitch.h"
+
+// All logic stubbed in header for now.
+// This file exists for future expansion.
+==============================
+FILE: src/ui/Footswitch.h
+==============================
+
+#pragma once
+
+#include <cstdint>
+
+// Simple debounced footswitch abstraction.
+// We'll wire this to a GPIO pin later.
+class Footswitch
+{
+  public:
+    Footswitch() {}
+    ~Footswitch() {}
+
+    void Init()
+    {
+        // TODO: later: initialize GPIO from HardwareConfig
+    }
+
+    void Update()
+    {
+        // TODO: read pin, debounce, update edge/hold state
+    }
+
+    bool Pressed() const { return false; }   // edge: went down
+    bool Released() const { return false; }  // edge: went up
+    bool Held() const { return false; }      // level: currently down
+};
+==============================
+FILE: src/ui/Led.cpp
+==============================
+
+#include "ui/Led.h"
+
+// All logic stubbed in header for now.
+// This file exists for future expansion.
+==============================
+FILE: src/ui/Led.h
+==============================
+
+#pragma once
+
+// Simple LED abstraction.
+// Later we can support PWM for brightness.
+class Led
+{
+  public:
+    Led() {}
+    ~Led() {}
+
+    void Init()
+    {
+        // TODO: configure GPIO (or PWM) from HardwareConfig
+    }
+
+    void Set(bool on)
+    {
+        // TODO: drive GPIO here
+        (void)on;
+        state_ = on;
+    }
+
+    bool Get() const { return state_; }
+
+  private:
+    bool state_{false};
+};
+==============================
+FILE: src/ui/OledView.cpp
+==============================
+
+#include "ui/OledView.h"
+
+// Implementation will be added later when wiring the actual display.
+==============================
+FILE: src/ui/OledView.h
+==============================
+
+#pragma once
+
+// Stub for OLED rendering.
+// Later this will wrap a Daisy display driver and draw text/graphics.
+class OledView
+{
+  public:
+    OledView() {}
+    ~OledView() {}
+
+    void Init()
+    {
+        // TODO: init display hardware here (I2C/SPI, etc.)
+    }
+
+    void Clear()
+    {
+        // TODO: clear screen
+    }
+
+    void DrawStartupScreen()
+    {
+        // TODO: draw "Dabney Pedal Template" or similar
+    }
+
+    void Present()
+    {
+        // TODO: send buffer to display
+    }
+};
+==============================
+FILE: src/ui/Potentiometer.cpp
+==============================
+
+#include "ui/Potentiometer.h"
+
+// All logic stubbed in header for now.
+// This file exists for future expansion.
+==============================
+FILE: src/ui/Potentiometer.h
+==============================
+
+#pragma once
+
+#include <cstdint>
+
+// Simple analog potentiometer abstraction.
+// Later we'll wire this to an ADC channel and add smoothing.
+class Potentiometer
+{
+  public:
+    Potentiometer() {}
+    ~Potentiometer() {}
+
+    void Init()
+    {
+        // TODO: configure ADC channel from HardwareConfig
+    }
+
+    void Update()
+    {
+        // TODO: read ADC, low-pass filter, update value_
+    }
+
+    // Normalized value [0.0, 1.0]
+    float GetValue() const { return value_; }
+
+  private:
+    float value_{0.0f};
+};
+==============================
+FILE: src/ui/ToggleSwitch.cpp
+==============================
+
+#include "ui/ToggleSwitch.h"
+
+// All logic stubbed in header for now.
+// This file exists for future expansion.
+==============================
+FILE: src/ui/ToggleSwitch.h
+==============================
+
+#pragma once
+
+#include <cstdint>
+
+// Simple 2-position toggle switch abstraction (e.g. up/down).
+// We can extend this later for 3-position if needed.
+class ToggleSwitch
+{
+  public:
+    enum class Position : uint8_t
+    {
+        Down = 0,
+        Up   = 1,
+    };
+
+    ToggleSwitch() {}
+    ~ToggleSwitch() {}
+
+    void Init()
+    {
+        // TODO: initialize GPIO(s) from HardwareConfig
+    }
+
+    void Update()
+    {
+        // TODO: read pin(s) and set position_
+    }
+
+    Position GetPosition() const { return position_; }
+
+  private:
+    Position position_{Position::Down};
+};
+==============================
+FILE: src/ui/UiController.cpp
+==============================
+
+#include "ui/UiController.h"
+
+// All current logic is inline in the header.
+// This exists so we can move implementation here later.
+==============================
+FILE: src/ui/UiController.h
+==============================
+
+#pragma once
+
+#include "ui/Encoder.h"
+#include "ui/Footswitch.h"
+#include "ui/OledView.h"
+#include "ui/Button.h"
+#include "ui/ToggleSwitch.h"
+#include "ui/Potentiometer.h"
+#include "ui/Led.h"
+#include "util/Types.h"
+
+// UiController manages interaction:
+// - Reads encoder / footswitch / buttons / toggles / pots
+// - Chooses what to show on OLED
+// For now it's a stub that does nothing visual.
+class UiController
+{
+  public:
+    UiController() {}
+    ~UiController() {}
+
+    void Init()
+    {
+        encoder_.Init();
+        footswitch_.Init();
+        button_.Init();
+        toggle_.Init();
+        pot_.Init();
+        led_.Init();
+        oled_.Init();
+
+        current_page_ = types::UiPage::Home;
+        // Later: draw an initial screen here.
+    }
+
+    // Called regularly from App::Loop()
+    void Update()
+    {
+        encoder_.Update();
+        footswitch_.Update();
+        button_.Update();
+        toggle_.Update();
+        pot_.Update();
+        // LED is driven by other parts of the app; no Update() needed.
+        // oled_ rendering will go here later.
+    }
+
+  private:
+    Encoder        encoder_;
+    Footswitch     footswitch_;
+    Button         button_;
+    ToggleSwitch   toggle_;
+    Potentiometer  pot_;
+    Led            led_;
+    OledView       oled_;
+    types::UiPage  current_page_{types::UiPage::Home};
+};
+==============================
+FILE: src/util/Log.cpp
+==============================
+
+
+==============================
+FILE: src/util/Log.h
+==============================
+
+#pragma once
+
+#include "config/BuildConfig.h"
+#include <cstdarg>
+
+// Simple logging helper.
+// Right now it does nothing, but we can wire it to daisy::DebugLog or UART later.
+namespace logutil
+{
+    // Print a formatted message (printf-style)
+    void Logf(const char* fmt, ...);
+
+} // namespace logutil
+
+// Convenience macro
+#if ENABLE_LOGGING
+#define LOGF(...) ::logutil::Logf(__VA_ARGS__)
+#else
+#define LOGF(...) \
+    do            \
+    {             \
+    } while(0)
+#endif
+==============================
+FILE: src/util/Types.h
+==============================
+
+#pragma once
+
+// Common types and enums shared across the pedal framework.
+
+namespace types
+{
+    // Bypass state of the pedal
+    enum class BypassState
+    {
+        Bypassed,
+        Active,
+    };
+
+    // Simple UI pages (we'll expand this later)
+    enum class UiPage
+    {
+        Home,
+        PresetSelect,
+        Edit,
+    };
+} // namespace types
